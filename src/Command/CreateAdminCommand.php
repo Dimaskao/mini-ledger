@@ -41,6 +41,7 @@ class CreateAdminCommand extends Command
         $hashedPassword = $this->passwordHasher->hashPassword($user, $input->getArgument('password'));
         $user->setPassword($hashedPassword);
 
+        $user->setRoles(['ROLE_USER']);
         $user->setRoles(['ROLE_ADMIN']);
 
         $this->entityManager->persist($user);
