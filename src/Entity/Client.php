@@ -7,9 +7,9 @@ use App\Repository\ClientRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Gedmo\Mapping\Annotation as Gedmo;
 
 #[ORM\Entity(repositoryClass: ClientRepository::class)]
-#[ORM\HasLifecycleCallbacks]
 class Client
 {
     #[ORM\Id]
@@ -24,15 +24,17 @@ class Client
     private string $email;
 
     #[ORM\Column(length: 255, nullable: true)]
-    private ?string $company_name = null;
+    private ?string $companyName = null;
 
     #[ORM\Column(enumType: ClientStatus::class)]
-    private ClientStatus $status;
+    private ClientStatus $status = ClientStatus::Active;
 
     #[ORM\Column]
+    #[Gedmo\Timestampable(on: 'create')]
     private \DateTimeImmutable $createdAt;
 
     #[ORM\Column(nullable: true)]
+    #[Gedmo\Timestampable(on: 'update')]
     private ?\DateTimeImmutable $updatedAt = null;
 
     /**
@@ -84,12 +86,12 @@ class Client
 
     public function getCompanyName(): ?string
     {
-        return $this->company_name;
+        return $this->companyName;
     }
 
-    public function setCompanyName(?string $company_name): static
+    public function setCompanyName(?string $companyName): static
     {
-        $this->company_name = $company_name;
+        $this->companyName = $companyName;
 
         return $this;
     }
