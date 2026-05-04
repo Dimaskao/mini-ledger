@@ -1,0 +1,32 @@
+api:
+  dashboard: true
+  debug: true
+
+ping: {}
+
+accessLog: {}
+
+log:
+  level: DEBUG
+
+serversTransport:
+  insecureSkipVerify: true
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+
+  websecure:
+    address: ":443"
+    http:
+      tls: true
+
+providers:
+  docker:
+    network: my_shared_network
+  file:
+    filename: /etc/traefik/tls.yml

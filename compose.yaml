@@ -1,0 +1,154 @@
+volumes:
+  tmpfs:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  database:
+  cache:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  storage:
+  lavinmq:
+
+services:
+  lavinmq:
+    image: cloudamqp/lavinmq:2.6
+    container_name: mini_ledger_lavinmq
+    labels:
+      - "traefik.http.routers.lavinmq.rule=Host(`lavinmq.dev.loc`)"
+      - "traefik.http.services.lavinmq.loadbalancer.server.port=15672"
+    healthcheck:
+      test: [ "CMD-SHELL", "lavinmqctl status" ]
+      interval: 1s
+      timeout: 1s
+      retries: 10
+    volumes:
+      - lavinmq:/var/lib/lavinmq
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+
+  lavinmq_setup:
+    image: cloudamqp/lavinmq:2.6
+    depends_on:
+      lavinmq:
+        condition: service_healthy
+    restart: "no"
+    volumes:
+      - ./docker/lavinmq/definitions.json:/definitions.json:z
+    entrypoint:
+      - lavinmqctl
+      - --host=http://guest:guest@mini_ledger_lavinmq:15672
+      - import_definitions
+      - /definitions.json
+
+  mailer:
+    container_name: mini_ledger_mailer
+    image: schickling/mailcatcher
+    pull_policy: always
+    ports:
+      - '1025:1025'
+      - '1080:1080'
+    labels:
+      - "traefik.http.routers.mailer.rule=Host(`mailer.dev.loc`)"
+      - "traefik.http.services.mailer.loadbalancer.server.port=1080"
+
+  proxy:
+    container_name: mini_ledger_proxy
+    image: traefik:3.6
+    pull_policy: always
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "traefik", "healthcheck" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.http.routers.dashboard.rule=Host(`proxy.dev.loc`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      - "traefik.http.routers.dashboard.service=api@internal"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:z
+      - ./traefik/tls.yml:/etc/traefik/tls.yml:z
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./.ssl:/etc/traefik/ssl:z
+    ports:
+      - "80:80"
+      - "443:443"
+
+  redis:
+    image: redis:8.0-alpine
+    container_name: mini_ledger_redis
+    pull_policy: always
+    labels:
+      - "traefik.http.routers.redis.rule=Host(`redis.dev.loc`)"
+      - "traefik.http.services.redis.loadbalancer.server.port=6379"
+    ports:
+      - "6379:6379"
+
+  nginx:
+    image: nginx:alpine
+    container_name: mini_ledger_nginx
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+      - ./docker/nginx/hub.conf:/etc/nginx/hub.conf
+      - ./:/app/
+    depends_on:
+      proxy:
+        condition: service_started
+      php:
+        condition: service_started
+    labels:
+      - "traefik.http.routers.miniledger.rule=Host(`miniledger.dev.loc`)"
+      - "traefik.http.services.miniledger.loadbalancer.server.scheme=https"
+      - "traefik.http.services.miniledger.loadbalancer.server.port=443"
+
+  php:
+    container_name: mini_ledger_php
+    environment:
+      APP_ENV: "dev"
+      APP_DEBUG: "true"
+    working_dir: /app
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    pull_policy: always
+    volumes:
+      - ./docker/php/conf.d/max_file_uploads.ini:/usr/local/etc/php/conf.d/max_file_uploads.ini
+      - ./docker/php/conf.d/post_max_size.ini:/usr/local/etc/php/conf.d/post_max_size.ini
+      - ./docker/php/conf.d/memory_limit.ini:/usr/local/etc/php/conf.d/memory_limit.ini
+      - ./docker/php/conf.d/upload_max_filesize.ini:/usr/local/etc/php/conf.d/upload_max_filesize.ini
+      - ./docker/php/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
+      - ./:/app
+      - ./var/log:/app/var/log
+      - cache:/app/var/cache
+      - tmpfs:/tmp
+    links:
+      - mysql
+    external_links:
+      - mini_ledger_lavinmq
+
+  mysql:
+    container_name: mini_ledger_mysql
+    image: mysql:8.4.8
+    volumes:
+      - database:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+      - ./docker/mysql/config.cnf:/etc/mysql/conf.d/config.cnf
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: miniledger
+      MYSQL_USER: ${MYSQL_USER:-miniledger}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-miniledger}
+      TZ: Europe/Riga
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 -uminiledger -pminiledger
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "3346:3306"
