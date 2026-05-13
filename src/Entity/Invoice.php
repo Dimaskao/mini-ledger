@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Gedmo\Mapping\Annotation as Gedmo;
 
 #[ORM\Entity(repositoryClass: InvoiceRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -26,30 +27,32 @@ class Invoice
     private ?string $number = null;
 
     #[ORM\Column(nullable: true)]
-    private ?\DateTimeImmutable $issue_date = null;
+    private ?\DateTimeImmutable $issueDate = null;
 
     #[ORM\Column(nullable: true)]
-    private ?\DateTimeImmutable $due_date = null;
+    private ?\DateTimeImmutable $dueDate = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $currency = null;
 
     #[ORM\Column(type: Types::BIGINT, nullable: true)]
-    private ?string $total_amount_minor = null;
+    private ?string $totalAmountMinor = null;
 
     #[ORM\Column(type: Types::BIGINT, nullable: true)]
-    private ?string $paid_amount_minor = null;
+    private ?string $paidAmountMinor = null;
 
     #[ORM\Column(enumType: InvoiceStatus::class)]
-    private InvoiceStatus $status;
+    private InvoiceStatus $status = InvoiceStatus::Draft;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $notes = null;
 
     #[ORM\Column]
+    #[Gedmo\Timestampable(on: 'create')]
     private ?\DateTimeImmutable $createdAt = null;
 
     #[ORM\Column(nullable: true)]
+    #[Gedmo\Timestampable(on: 'update')]
     private ?\DateTimeImmutable $updatedAt = null;
 
     /**
@@ -101,24 +104,24 @@ class Invoice
 
     public function getIssueDate(): ?\DateTimeImmutable
     {
-        return $this->issue_date;
+        return $this->issueDate;
     }
 
-    public function setIssueDate(?\DateTimeImmutable $issue_date): static
+    public function setIssueDate(?\DateTimeImmutable $issueDate): static
     {
-        $this->issue_date = $issue_date;
+        $this->issueDate = $issueDate;
 
         return $this;
     }
 
     public function getDueDate(): ?\DateTimeImmutable
     {
-        return $this->due_date;
+        return $this->dueDate;
     }
 
-    public function setDueDate(?\DateTimeImmutable $due_date): static
+    public function setDueDate(?\DateTimeImmutable $dueDate): static
     {
-        $this->due_date = $due_date;
+        $this->dueDate = $dueDate;
 
         return $this;
     }
@@ -137,24 +140,24 @@ class Invoice
 
     public function getTotalAmountMinor(): ?string
     {
-        return $this->total_amount_minor;
+        return $this->totalAmountMinor;
     }
 
-    public function setTotalAmountMinor(?string $total_amount_minor): static
+    public function setTotalAmountMinor(?string $totalAmountMinor): static
     {
-        $this->total_amount_minor = $total_amount_minor;
+        $this->totalAmountMinor = $totalAmountMinor;
 
         return $this;
     }
 
     public function getPaidAmountMinor(): ?string
     {
-        return $this->paid_amount_minor;
+        return $this->paidAmountMinor;
     }
 
-    public function setPaidAmountMinor(?string $paid_amount_minor): static
+    public function setPaidAmountMinor(?string $paidAmountMinor): static
     {
-        $this->paid_amount_minor = $paid_amount_minor;
+        $this->paidAmountMinor = $paidAmountMinor;
 
         return $this;
     }
